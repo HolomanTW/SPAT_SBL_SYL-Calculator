@@ -7,16 +7,19 @@ import multiprocessing
 from glob import glob
 
 def loadfiles():
+    global listbox_status
     folder_path = filedialog.askdirectory()
     files = glob(rf'{folder_path}/*.csv')
     print(len(files))
-    for file in files:
-        rd = pl.read_csv(file,has_header=True,skip_rows=11,skip_rows_after_header=5)
-        rd2 = pl.scan_csv(file,has_header=True,skip_rows=11,skip_rows_after_header=5,).filter("Bin" > 1)
-        show = rd2.collect()
-        print(show)
-        print(show.null_count())
-        break
+    rd = pl.scan_csv(files[0],has_header=True,skip_rows=11,n_rows=0)#.filter(Bin = 1)
+    show = rd.collect()
+    print(show)
+    #print(show.null_count())
+    if listbox_status == False:
+        title = [x for x in show.columns if x not in ban_list]
+        parameter.set(title)
+        listbox_status = True
+
 
 def spat_c():
     root.clipboard_clear()
@@ -37,16 +40,27 @@ if __name__ == '__main__':
     #變數初始化
     SPAT = tk.StringVar()
     SPAT.set('hihixd')
-
+    parameter = tk.StringVar()
+    ban_list = ['X','Y','Time/mS','Bin','SiteNo','TestNo']
+    listbox_status = False
+    
+    
     #元件配置初始化
     label = tk.Label(root, text="SPAT", wraplength=300,font=('Arial',20))
-    label.place(relx=0.1,rely=0.4,width=100,height=50)
+    label.place(relx=0.1,rely=0.6,width=100,height=50)
 
     btn = tk.Button(root,textvariable=SPAT, command=spat_c,font=('Arial',20))
-    btn.place(relx=0.25,rely=0.4,width=100,height=50)
+    btn.place(relx=0.3,rely=0.6,width=100,height=50)
 
-    openfilesbtn = tk.Button(root,text='Open directory',command=loadfiles,relief='solid',bd=2)
-    openfilesbtn.place(relx=0.5,rely=0.1,width=200,height=100)
+    openfilesbtn = tk.Button(root,text='Open directory',font=('Arial',15),command=loadfiles,relief='solid',bd=2)
+    openfilesbtn.place(relx=0.1,rely=0.1,width=150,height=70)
+
+    clnbtn = tk.Button(root ,text='Clean',font=('Arial',20),relief='solid',bd=2)
+    clnbtn.place(relx=0.1,rely=0.3,width=150,height=70)
+
+    listbox = tk.Listbox(root ,listvariable=parameter)
+    listbox.place(relx=0.5,rely=0.1)
+    
 
 
     root.mainloop()
