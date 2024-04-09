@@ -1,21 +1,32 @@
 import os
 import tkinter as tk
 from tkinter import filedialog
-import pandas as pd
+
 import polars as pl
-import multiprocessing
+#import multiprocessing
 from glob import glob
 
 def loadfiles():
     global listbox_status
+    global total_files
     folder_path = filedialog.askdirectory()
-    files = glob(rf'{folder_path}/*.csv')
-    print(len(files))
-    rd = pl.scan_csv(files[0],has_header=True,skip_rows=11,n_rows=0)#.filter(Bin = 1)
-    show = rd.collect()
-    print(show)
-    #print(show.null_count())
+    files = (glob(rf'{folder_path}/*.csv'))
+    #print(f'檔案數量:{len(files)}')
+
+    
+    try:
+        total_files = pl.concat([total_files,pl.DataFrame(files)])
+        print('ok')
+    except:
+        total_files = pl.DataFrame(files)
+    
+    print(total_files)
+    print(total_files[0])
+
     if listbox_status == False:
+        rd = pl.scan_csv(files[0],has_header=True,skip_rows=11,n_rows=0)#.filter(Bin = 1)
+        show = rd.collect()
+        print(show)
         title = [x for x in show.columns if x not in ban_list]
         parameter.set(title)
         listbox_status = True
