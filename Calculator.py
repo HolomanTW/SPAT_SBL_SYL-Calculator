@@ -1,4 +1,4 @@
-import os
+#import os
 import tkinter as tk
 from tkinter import filedialog
 import polars as pl
@@ -8,25 +8,28 @@ from glob import glob
 def loadfiles():
     global listbox_status
     global total_files
-    folder_path = filedialog.askdirectory()
-    files = (glob(rf'{folder_path}/*.csv'))
-    
-    if len(files) != 0:
-        try:
-            total_files = pl.concat([total_files,pl.DataFrame(files)])
-        except:
-            total_files = pl.DataFrame(files)
+    while True:
+        folder_path = filedialog.askdirectory()
+        files = (glob(rf'{folder_path}/*.csv'))
         
-        print(total_files)
-        print(f'檔案數量:{total_files.height}')
+        if len(files) != 0:
+            try:
+                total_files = pl.concat([total_files,pl.DataFrame(files)])
+            except:
+                total_files = pl.DataFrame(files)
+            
+            #print(total_files)
+            print(f'檔案數量:{total_files.height}')
 
-        if listbox_status == False:
-            rd = pl.scan_csv(total_files.row(0),has_header=True,skip_rows=11,n_rows=0)
-            header = rd.collect()
-            print('listbox')
-            title = [x for x in header.columns if x not in ban_list]
-            parameter.set(title)
-            listbox_status = True
+            if listbox_status == False:
+                rd = pl.scan_csv(total_files.row(0),has_header=True,skip_rows=11,n_rows=0)
+                header = rd.collect()
+                print('listbox')
+                title = [x for x in header.columns if x not in ban_list]
+                parameter.set(title)
+                listbox_status = True
+        else:
+            break
 
 def calculate():
     global total_files
@@ -48,7 +51,11 @@ def calculate():
         except:
             data_base = show
     print(data_base)
-    print(f'中位數:{data_base.median().row(0)}')
+    Robust_Mean = data_base.median().item(0,0)
+    Robust_Sigma = (data_base.quantile(0.75,"nearest").item(0,0) - data_base.quantile(0.25,"nearest").item(0,0)) / 1.35
+    print(f'Robust_Mean: {Robust_Mean}')
+    print(f'Robust_Sigma: {Robust_Sigma}')
+    SPAT.set(Robust_Mean)
         
 
 
