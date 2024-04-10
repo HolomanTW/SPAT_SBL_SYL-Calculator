@@ -1,7 +1,6 @@
 import os
 import tkinter as tk
 from tkinter import filedialog
-
 import polars as pl
 #import multiprocessing
 from glob import glob
@@ -11,30 +10,52 @@ def loadfiles():
     global total_files
     folder_path = filedialog.askdirectory()
     files = (glob(rf'{folder_path}/*.csv'))
-    #print(f'檔案數量:{len(files)}')
-
     
-    try:
-        total_files = pl.concat([total_files,pl.DataFrame(files)])
-        print('ok')
-    except:
-        total_files = pl.DataFrame(files)
-    
-    print(total_files)
-    print(total_files[0])
+    if len(files) != 0:
+        try:
+            total_files = pl.concat([total_files,pl.DataFrame(files)])
+        except:
+            total_files = pl.DataFrame(files)
+        
+        print(total_files)
+        print(f'檔案數量:{total_files.height}')
 
-    if listbox_status == False:
-        rd = pl.scan_csv(files[0],has_header=True,skip_rows=11,n_rows=0)#.filter(Bin = 1)
-        show = rd.collect()
-        print(show)
-        title = [x for x in show.columns if x not in ban_list]
-        parameter.set(title)
-        listbox_status = True
+        if listbox_status == False:
+            rd = pl.scan_csv(total_files.row(0),has_header=True,skip_rows=11,n_rows=0)
+            header = rd.collect()
+            print('listbox')
+            title = [x for x in header.columns if x not in ban_list]
+            parameter.set(title)
+            listbox_status = True
+
+def calculate():
+    global total_files
+    global data_base
+    for file in total_files.get_column('column_0'):
+        rd = pl.scan_csv(file,has_header=True,skip_rows=11,skip_rows_after_header=5).filter(Bin = 1)
+        n, = listbox.curselection()
+        try:
+            show = rd.select(listbox.get(n)).collect()
+            show = show.cast(pl.Float64)
+        except:
+            show = rd.with_columns(pl.col(listbox.get(n)).str.strip_chars()).select(listbox.get(n)).collect()
+            show = show.cast(pl.Float64)
+       
+        #print(type(show))
+        #print(listbox.get(n))
+        try:
+            data_base = pl.concat([data_base,show])
+        except:
+            data_base = show
+    print(data_base)
+    print(f'中位數:{data_base.median().row(0)}')
+        
 
 
 def spat_c():
     root.clipboard_clear()
     root.clipboard_append(SPAT.get())
+
 if __name__ == '__main__':
     #視窗初始化
     root = tk.Tk()
@@ -57,20 +78,30 @@ if __name__ == '__main__':
     
     
     #元件配置初始化
+    #SPAT標題
     label = tk.Label(root, text="SPAT", wraplength=300,font=('Arial',20))
-    label.place(relx=0.1,rely=0.6,width=100,height=50)
-
+    label.place(relx=0.1,rely=0.7,width=100,height=50)
+    #SPAT按鈕
     btn = tk.Button(root,textvariable=SPAT, command=spat_c,font=('Arial',20))
-    btn.place(relx=0.3,rely=0.6,width=100,height=50)
-
+    btn.place(relx=0.3,rely=0.7,width=100,height=50)
+    #打開資料夾按鈕
     openfilesbtn = tk.Button(root,text='Open directory',font=('Arial',15),command=loadfiles,relief='solid',bd=2)
     openfilesbtn.place(relx=0.1,rely=0.1,width=150,height=70)
-
+    #clean按鈕
     clnbtn = tk.Button(root ,text='Clean',font=('Arial',20),relief='solid',bd=2)
     clnbtn.place(relx=0.1,rely=0.3,width=150,height=70)
+    #計算按鈕
+    runbtn = tk.Button(root ,text='Calculate',font=('Arial',20),command=calculate,relief='solid',bd=2)
+    runbtn.place(relx=0.1,rely=0.5,width=410,height=50)
+    #滾動條
+    scollbar = tk.Scrollbar(root)
+    scollbar.place(relx=0.9,rely=0.1,height=170)
+    #listbox
+    listbox = tk.Listbox(root ,listvariable=parameter,font=('Arial',10),selectmode='single',yscrollcommand=scollbar.set,justify='center')
+    listbox.place(relx=0.45,rely=0.1,width=225,height=170)
+    
 
-    listbox = tk.Listbox(root ,listvariable=parameter)
-    listbox.place(relx=0.5,rely=0.1)
+    scollbar.config(command=listbox.yview)
     
 
 
