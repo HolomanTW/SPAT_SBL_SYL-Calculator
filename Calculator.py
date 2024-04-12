@@ -1,9 +1,8 @@
-#import os
 import tkinter as tk
 from tkinter import filedialog
 import polars as pl
-#import multiprocessing
 from glob import glob
+from functools import partial
 
 def loadfiles():
     global listbox_status
@@ -32,6 +31,7 @@ def loadfiles():
             break
 
 def calculate():
+    global bin_data_base
     for file in total_files.get_column('column_0'):
         rd = pl.scan_csv(file,has_header=True,skip_rows=11,skip_rows_after_header=5).filter(~pl.all_horizontal(pl.all().is_null()))
         n, = listbox.curselection()
@@ -44,61 +44,93 @@ def calculate():
             spat = spat.cast(pl.Float64)
 
         bin_rd = rd.select('Bin').collect()
+        bin_p = bin_rd.group_by("Bin").agg([pl.len().alias("count")]).with_columns((pl.col("count") / pl.sum("count")).alias("percent")).with_columns(pl.lit(file).alias('file'))
+        bin_pivot = bin_p.pivot(index='file',columns='Bin',values='percent')
+        bin_pivot.drop_in_place('file')
         
         try:
             data_base = pl.concat([data_base,spat])
-            bin_data_base = pl.concat([bin_data_base,bin_rd])
+            bin_data_base = pl.concat([bin_data_base,bin_pivot],how='diagonal').fill_null(0)
         except:
             data_base = spat
-            bin_data_base = bin_rd
-        
-    print(data_base)
-    print(bin_data_base)
-    print(
-        bin_data_base.group_by("Bin")
-        .agg([pl.len().alias("count")])
-        .with_columns((pl.col("count") / pl.sum("count")).alias("percent_count"))
-    )
+            bin_data_base = bin_pivot
+    #print(data_base)
+    #print(bin_data_base)
 
+    #SPAT計算
     Robust_Mean = data_base.median().item(0,0)
     Robust_Sigma = (data_base.quantile(0.75,"nearest").item(0,0) - data_base.quantile(0.25,"nearest").item(0,0)) / 1.35
     print(f'Robust_Mean: {Robust_Mean}')
     print(f'Robust_Sigma: {round(Robust_Sigma,3)}')
 
+    #SYL計算
+    SYL_Mean = bin_data_base['1'].mean() *100
+    SYL_Sigma = bin_data_base['1'].std() *100
+
+    #print(f'sylmean: {SYL_Mean}')
+    #print(f'sylsigma: {SYL_Sigma}')
+    #輸出SPAT
     SPAT.set(round(Robust_Mean + float(spinbox.get()) * Robust_Sigma , 3))
     SPAT_1.set(round(Robust_Mean - float(spinbox.get()) * Robust_Sigma , 3))
+    #輸出SYL
+    SYL.set(round(SYL_Mean - 3 * SYL_Sigma , 3))
+    SYL_1.set(round(SYL_Mean - 4 * SYL_Sigma , 3))
+    syl_display.set(f"{round(SYL_Mean,3)}      {round(SYL_Sigma,3)}")
+    bin_data_base.drop_in_place('1')
+
         
 def clean():
     global total_files
     global listbox_status
     total_files = pl.DataFrame(None)
     parameter.set('')
+    SPAT.set(0.0)
+    SPAT_1.set(0.0)
+    SYL.set(0.0)
+    SYL_1.set(0.0)
+    syl_display.set('')
+    bin_data_base.clear()
     files_amount.set('檔案數量 : 0')
     listbox_status = False
 
-def spat_c():
-    root.clipboard_clear()
-    root.clipboard_append(SPAT.get())
+def sbl_window():
+    window = tk.Toplevel()
+    window.title('SBL')
+    window.resizable(False, True)
+    window_width = root.winfo_screenwidth()    # 取得螢幕寬度
+    window_height = root.winfo_screenheight()  # 取得螢幕高度
+    width = 500
+    height = 500
+    left = int((window_width - width)/2)       # 計算左上 x 座標
+    top = int((window_height - height)/2)      # 計算左上 y 座標
+    window.geometry(f'{width}x{height}+{left}+{top}')
 
-def spat_1_c():
-    root.clipboard_clear()
-    root.clipboard_append(SPAT_1.get())
+    title = tk.Label(window,text='Bin                3σ                 4σ                 Mean                 Sigma',font=('Arial',12))
+    title.place(relx=0.05,rely=0.05)
+    #print(sorted(bin_data_base.columns))
+    for i,bin in enumerate(sorted(bin_data_base.columns)):
+        Mean = bin_data_base[bin].mean() *100
+        Sigma = bin_data_base[bin].std() *100
+        SBL1 = round(Mean + 3 * Sigma , 3)
+        SBL2 = round(Mean + 4 * Sigma , 3)
+        bin_label = tk.Label(window,text=bin,font=('Arial',14))
+        bin_label.place(relx=0.05,rely=0.13+i*0.13)
+        bin_btn0 = tk.Button(window,text=SBL1,command=partial(copy_spe,SBL1),font=('Arial',14),relief='solid',bd=2)
+        bin_btn0.place(relx=0.17,rely=0.12+i*0.12)
+        bin_btn1 = tk.Button(window,text=SBL2,command=partial(copy_spe,SBL2),font=('Arial',14),relief='solid',bd=2)
+        bin_btn1.place(relx=0.37,rely=0.12+i*0.12)
+        bin_label1 = tk.Label(window,text=f'{round(Mean,3)}         {round(Sigma,3)}',font=('Arial',14))
+        bin_label1.place(relx=0.57,rely=0.12+i*0.12)
+    window.mainloop()
 
-def syl_c():
+def copy(type):
     root.clipboard_clear()
-    root.clipboard_append(SYL.get())
+    root.clipboard_append(type.get())
 
-def syl_1_c():
+def copy_spe(type):
     root.clipboard_clear()
-    root.clipboard_append(SYL_1.get())
+    root.clipboard_append(type)
 
-def sbl_c():
-    root.clipboard_clear()
-    root.clipboard_append(SBL.get())
-
-def sbl_1_c():
-    root.clipboard_clear()
-    root.clipboard_append(SBL_1.get())
 
 if __name__ == '__main__':
     #視窗初始化
@@ -118,10 +150,10 @@ if __name__ == '__main__':
     SPAT_1 = tk.DoubleVar()
     SYL = tk.DoubleVar()
     SYL_1 = tk.DoubleVar()
-    SBL = tk.DoubleVar()
-    SBL_1 = tk.DoubleVar()
+
     parameter = tk.StringVar()
     files_amount = tk.StringVar()
+    syl_display = tk.StringVar()
     adj = tk.IntVar()
     adj.set('6')
     files_amount.set("檔案數量 : 0")
@@ -135,29 +167,30 @@ if __name__ == '__main__':
     label = tk.Label(root, text="SPAT=Mean±          Sigma", wraplength=300,font=('Arial',18))
     label.place(relx=0.1,rely=0.6,height=50)
     #SPAT按鈕
-    btn = tk.Button(root,textvariable=SPAT, command=spat_c,font=('Arial',20),relief='solid',bd=2)
+    btn = tk.Button(root,textvariable=SPAT, command=partial(copy,SPAT),font=('Arial',20),relief='solid',bd=2)
     btn.place(relx=0.6,rely=0.6,width=100,height=50)
     #SPAT按鈕_1
-    btn_1 = tk.Button(root,textvariable=SPAT_1, command=spat_1_c,font=('Arial',20),relief='solid',bd=2)
+    btn_1 = tk.Button(root,textvariable=SPAT_1, command=partial(copy,SPAT_1),font=('Arial',20),relief='solid',bd=2)
     btn_1.place(relx=0.8,rely=0.6,width=100,height=50)
     #SYL標題
     label1 = tk.Label(root, text="SYL", wraplength=300,font=('Arial',20))
-    label1.place(relx=0.1,rely=0.7,width=100,height=50)
+    label1.place(relx=0.07,rely=0.73,width=100,height=50)
     #SYL按鈕
-    btn1 = tk.Button(root,textvariable=SYL, command=syl_c,font=('Arial',20),relief='solid',bd=2)
-    btn1.place(relx=0.3,rely=0.7,width=100,height=50)
+    btn1 = tk.Button(root,textvariable=SYL, command=partial(copy,SYL),font=('Arial',20),relief='solid',bd=2)
+    btn1.place(relx=0.22,rely=0.73,width=100,height=50)
     #SYL按鈕_1
-    btn1_1 = tk.Button(root,textvariable=SYL_1, command=syl_1_c,font=('Arial',20),relief='solid',bd=2)
-    btn1_1.place(relx=0.6,rely=0.7,width=100,height=50)
+    btn1_1 = tk.Button(root,textvariable=SYL_1, command=partial(copy,SYL_1),font=('Arial',20),relief='solid',bd=2)
+    btn1_1.place(relx=0.42,rely=0.73,width=100,height=50)
+    #SYL title
+    label3 = tk.Label(root,text='3σ                         4σ                     Mean                   Sigma',font=('Arial',12))
+    label3.place(relx=0.28,rely=0.69)
+    #SYL標註
+    label4 = tk.Label(root,textvariable=syl_display,font=('Arial',20))
+    label4.place(relx=0.61,rely=0.74)
     #SBL標題
-    label2 = tk.Label(root, text="SBL", wraplength=300,font=('Arial',20))
-    label2.place(relx=0.1,rely=0.85,width=100,height=50)
-    #SBL按鈕
-    btn2 = tk.Button(root,textvariable=SBL, command=sbl_c,font=('Arial',20),relief='solid',bd=2)
-    btn2.place(relx=0.3,rely=0.85,width=100,height=50)
-    #SBL按鈕_1
-    btn2_1 = tk.Button(root,textvariable=SBL_1, command=sbl_1_c,font=('Arial',20),relief='solid',bd=2)
-    btn2_1.place(relx=0.6,rely=0.85,width=100,height=50)
+    sbl_btn = tk.Button(root, text="SBL", font=('Arial',20),command=sbl_window,relief='solid',bd=2)
+    sbl_btn.place(relx=0.42,rely=0.85,width=100,height=50)
+    
     #打開資料夾按鈕
     openfilesbtn = tk.Button(root,text='Open directory',font=('Arial',15),command=loadfiles,relief='solid',bd=2)
     openfilesbtn.place(relx=0.1,rely=0.1,width=150,height=70)
