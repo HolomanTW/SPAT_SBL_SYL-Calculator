@@ -106,7 +106,7 @@ def sbl_window():
     window.geometry(f'{width}x{height}+{left}+{top}')
 
     title = tk.Label(window,text='Bin                3σ                 4σ                 Mean                 Sigma',font=('Arial',12))
-    title.place(relx=0.05,rely=0.05)
+    title.place(x=25,y=25)
     #print(sorted(bin_data_base.columns))
     for i,bin in enumerate(sorted(bin_data_base.columns)):
         Mean = bin_data_base[bin].mean() *100
@@ -114,13 +114,13 @@ def sbl_window():
         SBL1 = round(Mean + 3 * Sigma , 3)
         SBL2 = round(Mean + 4 * Sigma , 3)
         bin_label = tk.Label(window,text=bin,font=('Arial',14))
-        bin_label.place(relx=0.05,rely=0.13+i*0.13)
+        bin_label.place(x=25,y=65+i*65)
         bin_btn0 = tk.Button(window,text=SBL1,command=partial(copy_spe,SBL1),font=('Arial',14),relief='solid',bd=2)
-        bin_btn0.place(relx=0.17,rely=0.12+i*0.12)
+        bin_btn0.place(x=85,y=65+i*65)
         bin_btn1 = tk.Button(window,text=SBL2,command=partial(copy_spe,SBL2),font=('Arial',14),relief='solid',bd=2)
-        bin_btn1.place(relx=0.37,rely=0.12+i*0.12)
+        bin_btn1.place(x=185,y=65+i*65)
         bin_label1 = tk.Label(window,text=f'{round(Mean,3)}         {round(Sigma,3)}',font=('Arial',14))
-        bin_label1.place(relx=0.57,rely=0.12+i*0.12)
+        bin_label1.place(x=285,y=65+i*65)
     window.mainloop()
 
 def copy(type):
