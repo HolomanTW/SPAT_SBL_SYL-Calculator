@@ -1,0 +1,1 @@
+nuitka --mingw64 --onefile --windows-disable-console --standalone --show-progress --plugin-enable=tk-inter --nofollow-import-to=numpy,matplotlib,pandas,seaborn --output-dir=output/ --output-filename=result Calculator.py
