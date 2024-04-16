@@ -104,8 +104,14 @@ def sbl_window():
     left = int((window_width - width)/2)       # 計算左上 x 座標
     top = int((window_height - height)/2)      # 計算左上 y 座標
     window.geometry(f'{width}x{height}+{left}+{top}')
-
-    title = tk.Label(window,text='Bin                3σ                 4σ                 Mean                 Sigma',font=('Arial',12))
+    #滾動條
+    scbar = tk.Scrollbar(window,orient='vertical')
+    scbar.pack(side='right',fill='y')
+    
+    canvas = tk.Canvas(window,yscrollcommand=scbar.set)
+    frame = tk.Frame(canvas)
+    #標題
+    title = tk.Label(frame,text='Bin                3σ                 4σ                 Mean                 Sigma',font=('Arial',12))
     title.place(x=25,y=25)
     #print(sorted(bin_data_base.columns))
     for i,bin in enumerate(sorted(bin_data_base.columns)):
@@ -113,14 +119,21 @@ def sbl_window():
         Sigma = bin_data_base[bin].std() *100
         SBL1 = round(Mean + 3 * Sigma , 3)
         SBL2 = round(Mean + 4 * Sigma , 3)
-        bin_label = tk.Label(window,text=bin,font=('Arial',14))
-        bin_label.place(x=25,y=65+i*65)
-        bin_btn0 = tk.Button(window,text=SBL1,command=partial(copy_spe,SBL1),font=('Arial',14),relief='solid',bd=2)
-        bin_btn0.place(x=85,y=65+i*65)
-        bin_btn1 = tk.Button(window,text=SBL2,command=partial(copy_spe,SBL2),font=('Arial',14),relief='solid',bd=2)
-        bin_btn1.place(x=185,y=65+i*65)
-        bin_label1 = tk.Label(window,text=f'{round(Mean,3)}         {round(Sigma,3)}',font=('Arial',14))
-        bin_label1.place(x=285,y=65+i*65)
+        frame_height = 65 + i * 65
+        bin_label = tk.Label(frame,text=bin,font=('Arial',14))
+        bin_label.place(x=25,y=frame_height)
+        bin_btn0 = tk.Button(frame,text=SBL1,command=partial(copy_spe,SBL1),font=('Arial',14),relief='solid',bd=2)
+        bin_btn0.place(x=85,y=frame_height)
+        bin_btn1 = tk.Button(frame,text=SBL2,command=partial(copy_spe,SBL2),font=('Arial',14),relief='solid',bd=2)
+        bin_btn1.place(x=185,y=frame_height)
+        bin_label1 = tk.Label(frame,text=f'{round(Mean,3)}         {round(Sigma,3)}',font=('Arial',14))
+        bin_label1.place(x=285,y=frame_height)
+
+    canvas.config(scrollregion=(0,0,500,frame_height+70))
+    scbar.config(command=canvas.yview)
+    frame.config(width=500,height=frame_height+70)
+    canvas.pack(fill='both',expand=True)
+    canvas.create_window((0,0),window=frame,anchor='nw')
     window.mainloop()
 
 def copy(type):
@@ -214,7 +227,7 @@ if __name__ == '__main__':
     spinbox.place(relx=0.37,rely=0.62,width=50)
 
     
-
+    #scollbar
     scollbar.config(command=listbox.yview)
     
 
