@@ -32,18 +32,20 @@ def loadfiles():
 
 def calculate():
     global bin_data_base
+    n, = listbox.curselection()
+    listbox_parameter = listbox.get(n)
     for file in total_files.get_column('column_0'):
-        rd = pl.scan_csv(file,has_header=True,skip_rows=11,skip_rows_after_header=5).filter(~pl.all_horizontal(pl.all().is_null()))
-        n, = listbox.curselection()
+        rd = pl.scan_csv(file,has_header=True,skip_rows=11,skip_rows_after_header=3).filter(~pl.all_horizontal(pl.all().is_null()))
+
         try:
-            spat = rd.filter(Bin=1).select(listbox.get(n)).collect()
+            spat = rd.filter(Bin='1').select(listbox_parameter).collect()
             spat = spat.cast(pl.Float64)
             
         except:
-            spat = rd.filter(Bin=1).with_columns(pl.col(listbox.get(n)).str.strip_chars()).select(listbox.get(n)).collect()
+            spat = rd.filter(Bin='1').with_columns(pl.col(listbox_parameter).str.strip_chars()).select(listbox_parameter).collect()
             spat = spat.cast(pl.Float64)
 
-        bin_rd = rd.select('Bin').collect()
+        bin_rd = rd.select('Bin').slice(2).collect()
         bin_p = bin_rd.group_by("Bin").agg([pl.len().alias("count")]).with_columns((pl.col("count") / pl.sum("count")).alias("percent")).with_columns(pl.lit(file).alias('file'))
         bin_pivot = bin_p.pivot(index='file',columns='Bin',values='percent')
         bin_pivot.drop_in_place('file')
@@ -56,27 +58,49 @@ def calculate():
             bin_data_base = bin_pivot
     #print(data_base)
     #print(bin_data_base)
+    #print(bin_rd.cast(pl.Int64))
+    
+    #取得原始上下限
+    MIN_rd = rd.select(listbox_parameter).first().collect()
+    MIN_rd = MIN_rd[listbox_parameter].item()
+    MIN = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MIN_rd))
+    
+    MAX_rd = rd.select(listbox_parameter).slice(1,1).collect()
+    MAX_rd = MAX_rd[listbox_parameter].item()
+    MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
+    print(f'Max:{MAX} Min:{MIN}')
 
     #SPAT計算
     Robust_Mean = data_base.median().item(0,0)
     Robust_Sigma = (data_base.quantile(0.75,"nearest").item(0,0) - data_base.quantile(0.25,"nearest").item(0,0)) / 1.35
     print(f'Robust_Mean: {Robust_Mean}')
     print(f'Robust_Sigma: {round(Robust_Sigma,3)}')
+    SPAT_upper_limit = round(Robust_Mean + float(spinbox.get()) * Robust_Sigma , 3)
+    SPAT_lower_limit = round(Robust_Mean - float(spinbox.get()) * Robust_Sigma , 3)
+    print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
 
     #SYL計算
     SYL_Mean = bin_data_base['1'].mean() *100
     SYL_Sigma = bin_data_base['1'].std() *100
 
-    #print(f'sylmean: {SYL_Mean}')
-    #print(f'sylsigma: {SYL_Sigma}')
     #輸出SPAT
-    SPAT.set(round(Robust_Mean + float(spinbox.get()) * Robust_Sigma , 3))
-    SPAT_1.set(round(Robust_Mean - float(spinbox.get()) * Robust_Sigma , 3))
+    if SPAT_upper_limit > float(MAX):
+        SPAT.set(float(MAX))
+    else:
+        SPAT.set(SPAT_upper_limit)
+    
+    if SPAT_lower_limit < float(MIN):
+        SPAT_1.set(float(MIN))
+    else:
+        SPAT_1.set(SPAT_lower_limit)
+    
+    
     #輸出SYL
     SYL.set(round(SYL_Mean - 3 * SYL_Sigma , 3))
     SYL_1.set(round(SYL_Mean - 4 * SYL_Sigma , 3))
     syl_display.set(f"{round(SYL_Mean,3)}      {round(SYL_Sigma,3)}")
     bin_data_base.drop_in_place('1')
+    sbl_btn.config(state=tk.NORMAL)
 
         
 def clean():
@@ -92,6 +116,7 @@ def clean():
     bin_data_base.clear()
     files_amount.set('檔案數量 : 0')
     listbox_status = False
+    sbl_btn.config(state=tk.DISABLED)
 
 def sbl_window():
     window = tk.Toplevel()
@@ -200,8 +225,8 @@ if __name__ == '__main__':
     #SYL標註
     label4 = tk.Label(root,textvariable=syl_display,font=('Arial',20))
     label4.place(relx=0.61,rely=0.74)
-    #SBL標題
-    sbl_btn = tk.Button(root, text="SBL", font=('Arial',20),command=sbl_window,relief='solid',bd=2)
+    #SBL視窗按鈕
+    sbl_btn = tk.Button(root, text="SBL", font=('Arial',20),command=sbl_window,relief='solid',bd=2,state=tk.DISABLED)
     sbl_btn.place(relx=0.42,rely=0.85,width=100,height=50)
     
     #打開資料夾按鈕
