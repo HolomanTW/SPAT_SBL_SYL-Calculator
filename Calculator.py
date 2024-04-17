@@ -18,7 +18,7 @@ def loadfiles():
                 total_files = pl.DataFrame(files)
             
             #print(total_files)
-            files_amount.set(f"檔案數量 : {total_files.height}")
+            files_amount.set(f"Files Count : {total_files.height}")
 
             if listbox_status == False:
                 rd = pl.scan_csv(total_files.row(0),has_header=True,skip_rows=11,n_rows=0)
@@ -106,17 +106,18 @@ def calculate():
 def clean():
     global total_files
     global listbox_status
+    global bin_data_base
     total_files = pl.DataFrame(None)
     parameter.set('')
     SPAT.set(0.0)
     SPAT_1.set(0.0)
     SYL.set(0.0)
     SYL_1.set(0.0)
-    syl_display.set('')
-    bin_data_base.clear()
-    files_amount.set('檔案數量 : 0')
+    syl_display.set('   0.0           0.0')
+    files_amount.set('Files Count : 0')
     listbox_status = False
     sbl_btn.config(state=tk.DISABLED)
+    bin_data_base.clear()
 
 def sbl_window():
     window = tk.Toplevel()
@@ -136,7 +137,7 @@ def sbl_window():
     canvas = tk.Canvas(window,yscrollcommand=scbar.set)
     frame = tk.Frame(canvas)
     #標題
-    title = tk.Label(frame,text='Bin                3σ                 4σ                 Mean                 Sigma',font=('Arial',12))
+    title = tk.Label(frame,text='Bin                3σ                 4σ                 Mean              Sigma',font=('Arial',12))
     title.place(x=25,y=25)
     #print(sorted(bin_data_base.columns))
     for i,bin in enumerate(sorted(bin_data_base.columns)):
@@ -146,13 +147,13 @@ def sbl_window():
         SBL2 = round(Mean + 4 * Sigma , 3)
         frame_height = 65 + i * 65
         bin_label = tk.Label(frame,text=bin,font=('Arial',14))
-        bin_label.place(x=25,y=frame_height)
+        bin_label.place(x=25,y=frame_height+5)
         bin_btn0 = tk.Button(frame,text=SBL1,command=partial(copy_spe,SBL1),font=('Arial',14),relief='solid',bd=2)
         bin_btn0.place(x=85,y=frame_height)
         bin_btn1 = tk.Button(frame,text=SBL2,command=partial(copy_spe,SBL2),font=('Arial',14),relief='solid',bd=2)
         bin_btn1.place(x=185,y=frame_height)
         bin_label1 = tk.Label(frame,text=f'{round(Mean,3)}         {round(Sigma,3)}',font=('Arial',14))
-        bin_label1.place(x=285,y=frame_height)
+        bin_label1.place(x=285,y=frame_height+5)
 
     canvas.config(scrollregion=(0,0,500,frame_height+70))
     scbar.config(command=canvas.yview)
@@ -188,46 +189,52 @@ if __name__ == '__main__':
     SPAT_1 = tk.DoubleVar()
     SYL = tk.DoubleVar()
     SYL_1 = tk.DoubleVar()
-
     parameter = tk.StringVar()
     files_amount = tk.StringVar()
     syl_display = tk.StringVar()
     adj = tk.IntVar()
     adj.set('6')
-    files_amount.set("檔案數量 : 0")
+    files_amount.set("Files Count : 0")
     ban_list = ['X','Y','Time/mS','Bin','SiteNo','TestNo']
     listbox_status = False
-    
+    syl_display.set('   0.0           0.0')
     
     
     #元件配置初始化
+    #canvas
+    root_canvas = tk.Canvas(root,width=590,height=290)
+    root_canvas.place(relx=0,rely=0.5)
+    root_canvas.create_line(50,40,550,40,width=3,)
+    
     #SPAT標題
+    label_spat = tk.Label(root, text='Upper                       Lower', font=('Arial',10), fg='red')
+    label_spat.place(relx=0.61,rely=0.57)
     label = tk.Label(root, text="SPAT=Mean±          Sigma", wraplength=300,font=('Arial',18))
-    label.place(relx=0.1,rely=0.6,height=50)
+    label.place(relx=0.05,rely=0.61,height=50)
     #SPAT按鈕
     btn = tk.Button(root,textvariable=SPAT, command=partial(copy,SPAT),font=('Arial',20),relief='solid',bd=2)
-    btn.place(relx=0.6,rely=0.6,width=100,height=50)
+    btn.place(relx=0.56,rely=0.61,width=100,height=50)
     #SPAT按鈕_1
     btn_1 = tk.Button(root,textvariable=SPAT_1, command=partial(copy,SPAT_1),font=('Arial',20),relief='solid',bd=2)
-    btn_1.place(relx=0.8,rely=0.6,width=100,height=50)
+    btn_1.place(relx=0.77,rely=0.61,width=100,height=50)
     #SYL標題
     label1 = tk.Label(root, text="SYL", wraplength=300,font=('Arial',20))
-    label1.place(relx=0.07,rely=0.73,width=100,height=50)
+    label1.place(relx=0.02,rely=0.75,width=100,height=50)
     #SYL按鈕
     btn1 = tk.Button(root,textvariable=SYL, command=partial(copy,SYL),font=('Arial',20),relief='solid',bd=2)
-    btn1.place(relx=0.22,rely=0.73,width=100,height=50)
+    btn1.place(relx=0.17,rely=0.75,width=100,height=50)
     #SYL按鈕_1
     btn1_1 = tk.Button(root,textvariable=SYL_1, command=partial(copy,SYL_1),font=('Arial',20),relief='solid',bd=2)
-    btn1_1.place(relx=0.42,rely=0.73,width=100,height=50)
+    btn1_1.place(relx=0.37,rely=0.75,width=100,height=50)
     #SYL title
-    label3 = tk.Label(root,text='3σ                         4σ                     Mean                   Sigma',font=('Arial',12))
-    label3.place(relx=0.28,rely=0.69)
+    label3 = tk.Label(root,text='3σ                          4σ                        Mean                       Sigma',font=('Arial',10),fg='red')
+    label3.place(relx=0.23,rely=0.71)
     #SYL標註
     label4 = tk.Label(root,textvariable=syl_display,font=('Arial',20))
-    label4.place(relx=0.61,rely=0.74)
+    label4.place(relx=0.57,rely=0.76)
     #SBL視窗按鈕
     sbl_btn = tk.Button(root, text="SBL", font=('Arial',20),command=sbl_window,relief='solid',bd=2,state=tk.DISABLED)
-    sbl_btn.place(relx=0.42,rely=0.85,width=100,height=50)
+    sbl_btn.place(relx=0.37,rely=0.87,width=100,height=50)
     
     #打開資料夾按鈕
     openfilesbtn = tk.Button(root,text='Open directory',font=('Arial',15),command=loadfiles,relief='solid',bd=2)
@@ -236,8 +243,8 @@ if __name__ == '__main__':
     clnbtn = tk.Button(root ,text='Clean',font=('Arial',20),command=clean,relief='solid',bd=2)
     clnbtn.place(relx=0.1,rely=0.26,width=150,height=70)
     #計算按鈕
-    runbtn = tk.Button(root ,text='Calculate',font=('Arial',20),command=calculate,relief='solid',bd=2)
-    runbtn.place(relx=0.1,rely=0.42,width=460,height=50)
+    runbtn = tk.Button(root ,text='Calculate',font=('Arial',20,'bold'),command=calculate,relief='solid',bd=2)
+    runbtn.place(relx=0.1,rely=0.42,width=480,height=50)
     #滾動條
     scollbar = tk.Scrollbar(root)
     scollbar.place(relx=0.87,rely=0.1,height=170)
@@ -246,10 +253,10 @@ if __name__ == '__main__':
     listbox.place(relx=0.45,rely=0.1,width=250,height=170)
     #檔案數量
     files_amount_dis = tk.Label(root,textvariable=files_amount,font=('Arial',17))
-    files_amount_dis.place(relx=0.35,rely=0.51)
+    files_amount_dis.place(relx=0.37,rely=0.51)
     #SPAT數值調整
     spinbox = tk.Spinbox(root,from_=0,to=50,font=('Arial',17),fg='#f00',justify='center',textvariable=adj)
-    spinbox.place(relx=0.37,rely=0.62,width=50)
+    spinbox.place(relx=0.32,rely=0.62,width=50)
 
     
     #scollbar
