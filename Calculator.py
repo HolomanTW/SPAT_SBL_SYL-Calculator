@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import messagebox
 import polars as pl
 from glob import glob
 from functools import partial
@@ -7,28 +8,30 @@ from functools import partial
 def loadfiles():
     global listbox_status
     global total_files
-    while True:
-        folder_path = filedialog.askdirectory()
-        files = (glob(rf'{folder_path}/*.csv'))
-        
-        if len(files) != 0:
-            try:
-                total_files = pl.concat([total_files,pl.DataFrame(files)])
-            except:
-                total_files = pl.DataFrame(files)
-            
-            #print(total_files)
-            files_amount.set(f"Files Count : {total_files.height}")
 
-            if listbox_status == False:
-                rd = pl.scan_csv(total_files.row(0),has_header=True,skip_rows=11,n_rows=0)
-                header = rd.collect()
-                print('listbox')
-                title = [x for x in header.columns if x not in ban_list]
-                parameter.set(title)
-                listbox_status = True
-        else:
-            break
+    folder_path = filedialog.askdirectory()
+    if folder_path != '':
+        makesure = messagebox.askquestion('確認路徑',f'確認檔案路徑為: {folder_path}')
+    
+    if folder_path != '' and makesure == 'yes':
+        
+        files = (glob(f'{folder_path}/**/*.csv',recursive=True))
+
+        try:
+            total_files = pl.concat([total_files,pl.DataFrame(files)])
+        except:
+            total_files = pl.DataFrame(files)
+        
+        #print(total_files)
+        files_amount.set(f"Files Count : {total_files.height}")
+
+        if listbox_status == False:
+            rd = pl.scan_csv(total_files.row(0),has_header=True,skip_rows=11,n_rows=0)
+            header = rd.collect()
+            title = [x for x in header.columns if x not in ban_list]
+            parameter.set(title)
+            listbox_status = True
+
 
 def calculate():
     global bin_data_base
@@ -68,16 +71,16 @@ def calculate():
     MAX_rd = rd.select(listbox_parameter).slice(1,1).collect()
     MAX_rd = MAX_rd[listbox_parameter].item()
     MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
-    print(f'Max:{MAX} Min:{MIN}')
+    #print(f'Original Max:{MAX} Min:{MIN}')
 
     #SPAT計算
     Robust_Mean = data_base.median().item(0,0)
     Robust_Sigma = (data_base.quantile(0.75,"nearest").item(0,0) - data_base.quantile(0.25,"nearest").item(0,0)) / 1.35
-    print(f'Robust_Mean: {Robust_Mean}')
-    print(f'Robust_Sigma: {round(Robust_Sigma,3)}')
+    #print(f'Robust Mean: {Robust_Mean}')
+    #print(f'Robust Sigma: {round(Robust_Sigma,3)}')
     SPAT_upper_limit = round(Robust_Mean + float(spinbox.get()) * Robust_Sigma , 3)
     SPAT_lower_limit = round(Robust_Mean - float(spinbox.get()) * Robust_Sigma , 3)
-    print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
+    #print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
 
     #SYL計算
     SYL_Mean = bin_data_base['1'].mean() *100
@@ -234,8 +237,7 @@ if __name__ == '__main__':
     label4.place(relx=0.57,rely=0.76)
     #SBL視窗按鈕
     sbl_btn = tk.Button(root, text="SBL", font=('Arial',20),command=sbl_window,relief='solid',bd=2,state=tk.DISABLED)
-    sbl_btn.place(relx=0.37,rely=0.87,width=100,height=50)
-    
+    sbl_btn.place(relx=0.37,rely=0.87,width=100,height=50)    
     #打開資料夾按鈕
     openfilesbtn = tk.Button(root,text='Open directory',font=('Arial',15),command=loadfiles,relief='solid',bd=2)
     openfilesbtn.place(relx=0.1,rely=0.1,width=150,height=70)
@@ -256,13 +258,9 @@ if __name__ == '__main__':
     files_amount_dis.place(relx=0.37,rely=0.51)
     #SPAT數值調整
     spinbox = tk.Spinbox(root,from_=0,to=50,font=('Arial',17),fg='#f00',justify='center',textvariable=adj)
-    spinbox.place(relx=0.32,rely=0.62,width=50)
+    spinbox.place(relx=0.32,rely=0.63,width=50)
 
-    
     #scollbar
     scollbar.config(command=listbox.yview)
     
-
-
     root.mainloop()
-
