@@ -61,26 +61,35 @@ def calculate():
             bin_data_base = bin_pivot
     #print(data_base)
     #print(bin_data_base)
-    #print(bin_rd.cast(pl.Int64))
+    #print(data_base.select(listbox_parameter).max())
     
     #取得原始上下限
     MIN_rd = rd.select(listbox_parameter).first().collect()
     MIN_rd = MIN_rd[listbox_parameter].item()
-    MIN = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MIN_rd))
-    
+    try:
+        MIN = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MIN_rd))
+    except:
+        MIN = MIN_rd
+
     MAX_rd = rd.select(listbox_parameter).slice(1,1).collect()
     MAX_rd = MAX_rd[listbox_parameter].item()
-    MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
-    #print(f'Original Max:{MAX} Min:{MIN}')
+    try:
+        MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
+    except:
+        MAX = MAX_rd
+    
+    print(f'Original Max:{MAX} Min:{MIN}')
 
     #SPAT計算
     Robust_Mean = data_base.median().item(0,0)
-    Robust_Sigma = (data_base.quantile(0.75,"nearest").item(0,0) - data_base.quantile(0.25,"nearest").item(0,0)) / 1.35
-    #print(f'Robust Mean: {Robust_Mean}')
-    #print(f'Robust Sigma: {round(Robust_Sigma,3)}')
+    Robust_Sigma = (data_base.quantile(0.75,"linear").item(0,0) - data_base.quantile(0.25,"linear").item(0,0)) / 1.35
+    print(f'Robust Mean: {Robust_Mean}')
+    print(f'Robust Sigma: {round(Robust_Sigma,3)}')
+    print(f'Q1:{data_base.quantile(0.25,"linear").item(0,0)}')
+    print(f'Q3:{data_base.quantile(0.75,"linear").item(0,0)}')
     SPAT_upper_limit = round(Robust_Mean + float(spinbox.get()) * Robust_Sigma , 3)
     SPAT_lower_limit = round(Robust_Mean - float(spinbox.get()) * Robust_Sigma , 3)
-    #print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
+    print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
 
     #SYL計算
     SYL_Mean = bin_data_base['1'].mean() *100
@@ -142,6 +151,7 @@ def sbl_window():
     #標題
     title = tk.Label(frame,text='Bin                3σ                 4σ                 Mean              Sigma',font=('Arial',12))
     title.place(x=25,y=25)
+    frame_height = 0
     #print(sorted(bin_data_base.columns))
     for i,bin in enumerate(sorted(bin_data_base.columns)):
         Mean = bin_data_base[bin].mean() *100
@@ -208,6 +218,8 @@ if __name__ == '__main__':
     root_canvas = tk.Canvas(root,width=590,height=290)
     root_canvas.place(relx=0,rely=0.5)
     root_canvas.create_line(50,40,550,40,width=3,)
+    root_canvas.create_line(50,130,550,130,width=3)
+    root_canvas.create_line(50,220,550,220,width=3)
     
     #SPAT標題
     label_spat = tk.Label(root, text='Upper                       Lower', font=('Arial',10), fg='red')
@@ -215,29 +227,29 @@ if __name__ == '__main__':
     label = tk.Label(root, text="SPAT=Mean±          Sigma", wraplength=300,font=('Arial',18))
     label.place(relx=0.05,rely=0.61,height=50)
     #SPAT按鈕
-    btn = tk.Button(root,textvariable=SPAT, command=partial(copy,SPAT),font=('Arial',20),relief='solid',bd=2)
+    btn = tk.Button(root,textvariable=SPAT, command=partial(copy,SPAT),font=('Arial',18),relief='solid',bd=2)
     btn.place(relx=0.56,rely=0.61,width=100,height=50)
     #SPAT按鈕_1
-    btn_1 = tk.Button(root,textvariable=SPAT_1, command=partial(copy,SPAT_1),font=('Arial',20),relief='solid',bd=2)
+    btn_1 = tk.Button(root,textvariable=SPAT_1, command=partial(copy,SPAT_1),font=('Arial',18),relief='solid',bd=2)
     btn_1.place(relx=0.77,rely=0.61,width=100,height=50)
     #SYL標題
     label1 = tk.Label(root, text="SYL", wraplength=300,font=('Arial',20))
-    label1.place(relx=0.02,rely=0.75,width=100,height=50)
+    label1.place(relx=0.02,rely=0.76,width=100,height=50)
     #SYL按鈕
     btn1 = tk.Button(root,textvariable=SYL, command=partial(copy,SYL),font=('Arial',20),relief='solid',bd=2)
-    btn1.place(relx=0.17,rely=0.75,width=100,height=50)
+    btn1.place(relx=0.17,rely=0.76,width=100,height=50)
     #SYL按鈕_1
     btn1_1 = tk.Button(root,textvariable=SYL_1, command=partial(copy,SYL_1),font=('Arial',20),relief='solid',bd=2)
-    btn1_1.place(relx=0.37,rely=0.75,width=100,height=50)
+    btn1_1.place(relx=0.37,rely=0.76,width=100,height=50)
     #SYL title
     label3 = tk.Label(root,text='3σ                          4σ                        Mean                       Sigma',font=('Arial',10),fg='red')
-    label3.place(relx=0.23,rely=0.71)
+    label3.place(relx=0.23,rely=0.72)
     #SYL標註
     label4 = tk.Label(root,textvariable=syl_display,font=('Arial',20))
-    label4.place(relx=0.57,rely=0.76)
+    label4.place(relx=0.57,rely=0.77)
     #SBL視窗按鈕
     sbl_btn = tk.Button(root, text="SBL", font=('Arial',20),command=sbl_window,relief='solid',bd=2,state=tk.DISABLED)
-    sbl_btn.place(relx=0.37,rely=0.87,width=100,height=50)    
+    sbl_btn.place(relx=0.41,rely=0.89,width=100,height=50)    
     #打開資料夾按鈕
     openfilesbtn = tk.Button(root,text='Open directory',font=('Arial',15),command=loadfiles,relief='solid',bd=2)
     openfilesbtn.place(relx=0.1,rely=0.1,width=150,height=70)
