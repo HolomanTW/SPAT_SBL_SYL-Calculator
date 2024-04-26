@@ -44,7 +44,7 @@ def loadfiles():
             if 'Bin' in bin_header.columns:
                 break
             else:
-                messagebox.showerror('Error',"找不到Bin標題\n\n請重新選擇")
+                messagebox.showerror('Error',"找不到 Bin 標題\n\n請重新選擇")
                 settings()
 
 
@@ -66,7 +66,6 @@ def calculate():
         rd = pl.scan_csv(total_files ,has_header=True,skip_rows=header_row.get()-1).drop('').filter(~pl.all_horizontal(pl.all().is_null())).filter((pl.col("Bin#") == '1') & (pl.col('Parameter') == 'PID-'))
         limit_rd = pl.scan_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,skip_rows_after_header=1,n_rows=3).drop('')
         rescancsv = False
-        print('scan!!!')
 
     try:
         spat_rd = rd.select(listbox_parameter).cast(pl.Float64).collect()
@@ -97,7 +96,7 @@ def calculate():
         except:
             MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
     
-    print(f'Original Max:{MAX} Min:{MIN}')
+
     spat()
 
     if recalculatesbl == True:
@@ -125,18 +124,19 @@ def calculate():
         SYL_1.set(round(SYL_Mean - 4 * SYL_Sigma , 3))
         syl_display.set(round(SYL_Mean,3))
         syl_display1.set(round(SYL_Sigma,3))
+        with pl.Config(tbl_cols=-1,tbl_rows=-1):
+            print(percentage)
         percentage.drop_in_place('1')
         sbl_btn.config(state=tk.NORMAL)
     
     
-    
-    #SPAT計算
+    #SPAT計算DEBUG
+
+    print(f'Original Max:{MAX} Min:{MIN}')
     print(f'Robust Mean: {Robust_Mean}')
     print(f'Robust Sigma: {round(Robust_Sigma,3)}')
     #print(f'Q1:{data_base.quantile(0.25,"linear").item(0,0)}')
     #print(f'Q3:{data_base.quantile(0.75,"linear").item(0,0)}')
-
-
     #with pl.Config(tbl_cols=-1,tbl_rows=-1):
         #print(bin_data_base)
 
@@ -147,7 +147,7 @@ def spat():
     try:
         SPAT_upper_limit = round(Robust_Mean + float(spinbox.get()) * Robust_Sigma , 3)
         SPAT_lower_limit = round(Robust_Mean - float(spinbox.get()) * Robust_Sigma , 3)
-        print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
+        #print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
         #輸出SPAT
         if MAX == None:
             SPAT.set(SPAT_upper_limit)
@@ -172,6 +172,8 @@ def spat():
         count = spat_rd.count().item()
         loss_die = spat_rd.filter((pl.first() > SPAT_upper_limit) | (pl.first() < SPAT_lower_limit)).count().item()
         loss.set(f"{round((loss_die / count)*100,3)}%")
+        print(f"total{count}")
+        print(f'choose{loss_die}')
 
     except:
         pass
@@ -252,7 +254,7 @@ def sbl_window():
         bin_btn0.place(x=200,y=frame_height,width=75)
         bin_btn1 = tk.Button(frame,text=SBL2,command=partial(copy_spe,SBL2),font=('Arial',14),relief='solid',bd=2)
         bin_btn1.place(x=300,y=frame_height,width=75)
-        bin_label1 = tk.Label(frame,text=bin_name[i],font=('Arial',12))
+        bin_label1 = tk.Label(frame,text=bin_name[i],font=('Arial',12),wraplength=100)
         bin_label1.place(x=80,y=frame_height+5)
         bin_label2 = tk.Label(frame,text=f'{round(Mean,3)}         {round(Sigma,3)}',font=('Arial',14))
         bin_label2.place(x=400,y=frame_height+5)
@@ -296,7 +298,7 @@ def settings():
         Setting.destroy()
         Setting.quit()
 
-    close_btn = tk.Button(Setting,text='close',command=close,relief='solid')
+    close_btn = tk.Button(Setting,text='Close',command=close,relief='solid',font=('Arial',20))
     close_btn.place(x=150,rely=0.8,width=100,height=50)
     Setting.protocol("WM_DELETE_WINDOW",close)
     Setting.mainloop()
