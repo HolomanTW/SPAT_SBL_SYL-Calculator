@@ -66,14 +66,17 @@ def calculate():
         rd = pl.scan_csv(total_files ,has_header=True,skip_rows=header_row.get()-1).drop('').filter(~pl.all_horizontal(pl.all().is_null())).filter((pl.col("Bin#") == '1') & (pl.col('Parameter') == 'PID-'))
         limit_rd = pl.scan_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,skip_rows_after_header=1,n_rows=3).drop('')
         rescancsv = False
-
+    #轉換數據類型為Float
     try:
         spat_rd = rd.select(listbox_parameter).cast(pl.Float64).collect()
     except:
         spat_rd = rd.with_columns(pl.col(listbox_parameter).str.strip_chars()).select(listbox_parameter).cast(pl.Float64).collect()
-    
-    Robust_Mean = spat_rd.median().item(0,0)
-    Robust_Sigma = (spat_rd.quantile(0.75,"linear").item(0,0) - spat_rd.quantile(0.25,"linear").item(0,0)) / 1.35
+    #計算SPAT的Robust Mean and Robust Sigma
+    try:
+        Robust_Mean = spat_rd.median().item(0,0)
+        Robust_Sigma = (spat_rd.quantile(0.75,"linear").item(0,0) - spat_rd.quantile(0.25,"linear").item(0,0)) / 1.35
+    except TypeError:
+        messagebox.showerror('Error','無良率')
     #取得原始上下限
     MIN_rd = limit_rd.filter(pl.col('Parameter') == 'Min').select(listbox_parameter).collect()   #問題
     MIN_rd = MIN_rd.item(0,0)
@@ -85,7 +88,6 @@ def calculate():
         except:
             MIN = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MIN_rd))
 
-
     MAX_rd = limit_rd.filter(pl.col('Parameter') == 'Max').select(listbox_parameter).collect()   #問題
     MAX_rd = MAX_rd.item(0,0)
     if MAX_rd == None:
@@ -96,7 +98,6 @@ def calculate():
         except:
             MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
     
-
     spat()
 
     if recalculatesbl == True:
@@ -335,7 +336,7 @@ if __name__ == '__main__':
     bin_row = tk.IntVar()
     bin_row.set(14)
     
-    ban_list = ['Parameter','X','Y','Bin#','Site#','B-CONT','C-CONT','E-CONT']
+    ban_list = ['Parameter','X','Y','Bin#','Site#','B-CONT','C-CONT','E-CONT','OPEN/SHORT']
     listbox_status = False
     
     
