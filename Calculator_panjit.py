@@ -4,6 +4,13 @@ from tkinter import messagebox
 import polars as pl
 from glob import glob
 from functools import partial
+import time
+import threading
+
+def animation():
+    for i in ['f','e','d','c','b','a',9,8,7,6,5,4,3,2,1,0]:
+        files_amount_label.config(fg=f'#{i}00')
+        time.sleep(0.1)
 
 def loadfiles():
     global listbox_status
@@ -22,9 +29,11 @@ def loadfiles():
             total_files.extend(files)
         except:
             total_files = files
-        
+        test = threading.Thread(target=animation)
+        test.start()
+                
         #print(total_files)
-        files_amount.set(f"Files Count : {len(total_files)}")
+        files_amount.set(len(total_files))
         while listbox_status == False:
             rd = pl.scan_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,n_rows=0,truncate_ragged_lines=True).drop('')
             header = rd.collect()
@@ -198,7 +207,7 @@ def clean():
     SYL_1.set(0.0)
     syl_display.set(0)
     syl_display1.set(0)
-    files_amount.set('Files Count : 0')
+    files_amount.set(0)
     listbox_status = False
     sbl_btn.config(state=tk.DISABLED)
     loss.set('0.0%')
@@ -311,7 +320,7 @@ if __name__ == '__main__':
     root.resizable(False, False)
     window_width = root.winfo_screenwidth()    # 取得螢幕寬度
     window_height = root.winfo_screenheight()  # 取得螢幕高度
-    width = 600
+    width = 1000
     height = 600
     left = int((window_width - width)/2)       # 計算左上 x 座標
     top = int((window_height - height)/2)      # 計算左上 y 座標
@@ -325,8 +334,8 @@ if __name__ == '__main__':
     loss = tk.StringVar()
     loss.set('0.0%')
     parameter = tk.StringVar()
-    files_amount = tk.StringVar()
-    files_amount.set("Files Count : 0")
+    files_amount = tk.IntVar()
+    #files_amount.set("Files Count : 0")
     syl_display = tk.DoubleVar()
     syl_display1 = tk.DoubleVar()
     adj = tk.IntVar()
@@ -346,73 +355,80 @@ if __name__ == '__main__':
     #canvas
     root_canvas = tk.Canvas(root,width=590,height=290)
     root_canvas.place(relx=0,rely=0.5)
-    root_canvas.create_line(40,40,560,40,width=3,)
-    root_canvas.create_line(40,130,560,130,width=3)
-    root_canvas.create_line(40,220,560,220,width=3)
+    #root_canvas.create_line(40,40,560,40,width=3,)
+    #root_canvas.create_line(40,130,560,130,width=3)
+    #root_canvas.create_line(40,220,560,220,width=3)
     
     #SPAT標題
-    label_spat = tk.Label(root, text='Upper                       Lower                    Sigma                    LOSS %', font=('Arial',10))
-    label_spat.place(relx=0.21,rely=0.57)
-    label = tk.Label(root, text="SPAT",font=('Arial',18))
-    label.place(relx=0.05,rely=0.61,height=50)
+    label_spat = tk.Label(root, text='Upper\n\n\nLower\n\n\nSigma\n\n\nLoss %', font=('Arial',14))
+    label_spat.place(x=50,y=300)
+    label = tk.Label(root, text="SPAT",font=('Arial',20,'bold'))
+    label.place(relx=0.1,rely=0.39,height=50,width=190)
     #SPAT按鈕
     btn = tk.Button(root,textvariable=SPAT, command=partial(copy,SPAT),font=('Arial',18),relief='solid',bd=2)
-    btn.place(relx=0.17,rely=0.61,width=100,height=50)
+    btn.place(relx=0.14,rely=0.48,width=110,height=50)
     #SPAT按鈕_1
     btn_1 = tk.Button(root,textvariable=SPAT_1, command=partial(copy,SPAT_1),font=('Arial',18),relief='solid',bd=2)
-    btn_1.place(relx=0.37,rely=0.61,width=100,height=50)
+    btn_1.place(relx=0.14,rely=0.6,width=110,height=50)
+    #DPAT標題
+    label2 = tk.Label(root,text='DPAT',wraplength=300,font=('Arial',20,'bold'))
+    label2.place(relx=0.3,rely=0.39,width=190,height=50)
     #SYL標題
-    label1 = tk.Label(root, text="SYL", wraplength=300,font=('Arial',20))
-    label1.place(relx=0.02,rely=0.76,width=100,height=50)
+    label1 = tk.Label(root, text="SYL", wraplength=300,font=('Arial',20,'bold'))
+    label1.place(relx=0.5,rely=0.39,width=190,height=50)
     #SYL按鈕
     btn1 = tk.Button(root,textvariable=SYL, command=partial(copy,SYL),font=('Arial',18),relief='solid',bd=2)
-    btn1.place(relx=0.17,rely=0.76,width=100,height=50)
+    btn1.place(relx=0.54,rely=0.48,width=110,height=50)
     #SYL按鈕_1
     btn1_1 = tk.Button(root,textvariable=SYL_1, command=partial(copy,SYL_1),font=('Arial',18),relief='solid',bd=2)
-    btn1_1.place(relx=0.37,rely=0.76,width=100,height=50)
+    btn1_1.place(relx=0.54,rely=0.6,width=110,height=50)
     #SYL title
-    label3 = tk.Label(root,text='3σ                          4σ                        Mean                     Sigma',font=('Arial',10))
-    label3.place(relx=0.23,rely=0.72)
+    label3 = tk.Label(root,text='Mean\n\n\nSigma',font=('Arial',14))
+    label3.place(relx=0.45,rely=0.72)
     #SYL標註
     label4 = tk.Label(root,textvariable=syl_display,font=('Arial',20),anchor='center')
-    label4.place(relx=0.55,rely=0.77,width=120)
+    label4.place(relx=0.54,rely=0.71,width=110,height=50)
     label5 = tk.Label(root,textvariable=syl_display1,font=('Arial',20),anchor='center')
-    label5.place(relx=0.75,rely=0.77,width=120)
+    label5.place(relx=0.54,rely=0.81,width=110,height=50)
+    #SBL標題
+    label6 = tk.Label(root,text='SBL', wraplength=300,font=('Arial',20,'bold'))
+    label6.place(relx=0.7,rely=0.39,width=190,height=50)
     #SBL視窗按鈕
     sbl_btn = tk.Button(root, text="SBL", font=('Arial',20),command=sbl_window,relief='solid',bd=2,state=tk.DISABLED)
-    sbl_btn.place(relx=0.41,rely=0.89,width=100,height=50)    
+    sbl_btn.place(relx=0.75,rely=0.48,width=100,height=50)    
     #打開資料夾按鈕
-    openfilesbtn = tk.Button(root,text='Open directory',font=('Arial',15),command=loadfiles,relief='solid',bd=2)
-    openfilesbtn.place(relx=0.1,rely=0.07,width=150,height=70)
+    openfilesbtn = tk.Button(root,text='Open directory',font=('Arial',18),command=loadfiles,relief='solid',bd=2)
+    openfilesbtn.place(relx=0.1,rely=0.07,width=190,height=90)
     #clean按鈕
     clnbtn = tk.Button(root ,text='Clean',font=('Arial',20),command=clean,relief='solid',bd=2)
-    clnbtn.place(relx=0.1,rely=0.23,width=150,height=70)
+    clnbtn.place(relx=0.1,rely=0.23,width=190,height=90)
     #計算按鈕
-    runbtn = tk.Button(root ,text='Calculate',font=('Arial',20,'bold'),command=calculate,relief='solid',bd=2)
-    runbtn.place(relx=0.1,rely=0.4,width=480,height=50)
+    runframe = tk.LabelFrame(root,bd=6,bg='red',relief='flat')
+    runframe.place(relx=0.5,rely=0.07,width=190,height=185)
+    runbtn = tk.Button(runframe ,text='Calculate',font=('Arial',20,'bold'),command=calculate,relief='flat')
+    runbtn.pack(fill='both',expand=1)
     #滾動條
     scollbar = tk.Scrollbar(root)
-    scollbar.place(relx=0.87,rely=0.07,height=170)
+    scollbar.place(relx=0.9,rely=0.07,height=185)
     #listbox
-    listbox = tk.Listbox(root ,listvariable=parameter,font=('Arial',10),selectmode='single',yscrollcommand=scollbar.set,justify='center')
-    listbox.place(relx=0.45,rely=0.07,width=250,height=170)
+    listbox = tk.Listbox(root ,listvariable=parameter,font=('Arial',10),selectmode='single',yscrollcommand=scollbar.set,justify='center',relief='solid',bd=2)
+    listbox.place(relx=0.7,rely=0.07,width=200,height=185)
     #scollbar
     scollbar.config(command=listbox.yview)
     #檔案數量
-    files_amount_dis = tk.Label(root,textvariable=files_amount,font=('Arial',17))
-    files_amount_dis.place(relx=0.37,rely=0.49)
+    files_amount_frame = tk.LabelFrame(root,text='Files Count',relief='solid',bd=2,font=('Arial',17),labelanchor='n')
+    files_amount_frame.place(relx=0.3,rely=0.05,width=190,height=198)
+    files_amount_label = tk.Label(files_amount_frame,textvariable=files_amount, font=('Arial',40))
+    files_amount_label.pack(fill='both',expand=1)
     #SPAT數值調整
     spinbox = tk.Spinbox(root,from_=0,to=50,font=('Arial',20),fg='#f00',justify='center',textvariable=adj,command=spat)
-    spinbox.place(relx=0.61,rely=0.62,width=50)
+    spinbox.place(relx=0.14,rely=0.72,width=110)
     #設定
     menubar = tk.Menu(root)
     menubar.add_command(label='Settings',command=settings)
     root.config(menu=menubar)
     #LOSS率
     losslabel = tk.Label(root ,textvariable=loss,font=('Arial',20))
-    losslabel.place(relx=0.73,rely=0.61,width=150,height=50)
+    losslabel.place(relx=0.14,rely=0.81,width=110,height=50)
 
-
-
-    
     root.mainloop()
