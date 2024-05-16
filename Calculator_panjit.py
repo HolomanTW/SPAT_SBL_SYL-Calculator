@@ -11,105 +11,80 @@ def animation():
     for i in ['f','e','d','c','b','a',9,8,7,6,5,4,3,2,1,0]:
         files_amount_label.config(fg=f'#{i}00')
         time.sleep(0.1)
+        
 
 def loadfiles():
-    global listbox_status
+    global title
     global total_files
-    global rescancsv
-    global recalculatesbl
 
     folder_path = filedialog.askdirectory()
         
     if folder_path != '':
-        rescancsv = True
-        recalculatesbl = True
         files = glob(f'{folder_path}/**/*[!a-z].csv',recursive=True)
 
         try:
             total_files.extend(files)
         except:
             total_files = files
-        test = threading.Thread(target=animation)
-        test.start()
-                
+        
         #print(total_files)
-        files_amount.set(len(total_files))
-        while listbox_status == False:
-            rd = pl.scan_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,n_rows=0,truncate_ragged_lines=True).drop('')
-            header = rd.collect()
-            
+        
+        while True:
+            header = pl.read_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,n_rows=0,truncate_ragged_lines=True).drop('')
+
             if 'Parameter' in header.columns:
                 title = [x for x in header.columns if x not in ban_list]
-                parameter.set(title)
-                listbox_status = True
-            else:
-                messagebox.showerror('Error','找不到測項標題\n\n請重新選擇')
-                settings()
-
-
-        while True:
-            bin_rd = pl.scan_csv(total_files[0],has_header=True,skip_rows=bin_row.get()-1,n_rows=0,truncate_ragged_lines=True)
-            bin_header = bin_rd.collect()
-            if 'Bin' in bin_header.columns:
+                files_amount.set(len(total_files))
+                test = threading.Thread(target=animation)
+                test.start()
+                root.mainloop()
                 break
             else:
-                messagebox.showerror('Error',"找不到 Bin 標題\n\n請重新選擇")
-                settings()
+                retry = messagebox.askretrycancel('Error','找不到測項標題\n\n請重新選擇')
+                if retry == True:
+                    settings()
+                else:
+                    total_files = []
+                    break
+        
 
 
 def calculate():
     global percentage
-    global rescancsv
-    global recalculatesbl
+    #global rescancsv
     global limit_rd
-    global rd
+    #global rd
     global Robust_Mean
     global Robust_Sigma
-    global MIN
-    global MAX
     global spat_rd
-    n, = listbox.curselection()
-    listbox_parameter = listbox.get(n)
+    global combine_forSPAT_rd
 
-    if rescancsv ==True:
-        rd = pl.scan_csv(total_files ,has_header=True,skip_rows=header_row.get()-1).drop('').filter(~pl.all_horizontal(pl.all().is_null())).filter((pl.col("Bin#") == '1') & (pl.col('Parameter') == 'PID-'))
-        limit_rd = pl.scan_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,skip_rows_after_header=1,n_rows=3).drop('')
-        rescancsv = False
+    parameter.set(title)
+
+    file_queue = []
+    for file in total_files:
+        rd = pl.scan_csv(file ,has_header=True,skip_rows=header_row.get()-1).drop('').filter(~pl.all_horizontal(pl.all().is_null())).filter(pl.col('Parameter') == 'PID-')
+        file_queue.append(rd)
+    total_rd = pl.collect_all(file_queue)
+    limit_rd = pl.read_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,skip_rows_after_header=1,n_rows=3).drop('')
+    combine_forSPAT_rd = pl.concat(total_rd).filter(pl.col('Bin#') == '1').drop('Parameter')
+
+
     #轉換數據類型為Float
     try:
-        spat_rd = rd.select(listbox_parameter).cast(pl.Float64).collect()
+        spat_rd = combine_forSPAT_rd.cast(pl.Float64)
     except:
-        spat_rd = rd.with_columns(pl.col(listbox_parameter).str.strip_chars()).select(listbox_parameter).cast(pl.Float64).collect()
+        spat_rd = combine_forSPAT_rd.with_columns(pl.all().str.strip_chars()).cast(pl.Float64)
     #計算SPAT的Robust Mean and Robust Sigma
     try:
-        Robust_Mean = spat_rd.median().item(0,0)
-        Robust_Sigma = (spat_rd.quantile(0.75,"linear").item(0,0) - spat_rd.quantile(0.25,"linear").item(0,0)) / 1.35
+        Robust_Mean = spat_rd.median()
+        Robust_Sigma = (spat_rd.quantile(0.75,"linear") - spat_rd.quantile(0.25,"linear")) / 1.35
     except TypeError:
         messagebox.showerror('Error','無良率')
-    #取得原始上下限
-    MIN_rd = limit_rd.filter(pl.col('Parameter') == 'Min').select(listbox_parameter).collect()   #問題
-    MIN_rd = MIN_rd.item(0,0)
-    if MIN_rd == None:
-        MIN = MIN_rd
-    else:
-        try:
-            MIN = float(MIN_rd)
-        except:
-            MIN = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MIN_rd))
 
-    MAX_rd = limit_rd.filter(pl.col('Parameter') == 'Max').select(listbox_parameter).collect()   #問題
-    MAX_rd = MAX_rd.item(0,0)
-    if MAX_rd == None:
-        MAX = MAX_rd
-    else:
-        try:
-            MAX = float(MAX_rd)
-        except:
-            MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
     
-    spat()
-
-    if recalculatesbl == True:
+    
+'''    if recalculatesbl == True:
         for file in total_files:
             bin_rd = pl.read_csv(file ,has_header=True,skip_rows=bin_row.get()-1,skip_rows_after_header=1,n_rows=1,truncate_ragged_lines=True)
             bin_rd.drop_in_place('Bin')
@@ -134,17 +109,15 @@ def calculate():
         SYL_1.set(round(SYL_Mean - 4 * SYL_Sigma , 3))
         syl_display.set(round(SYL_Mean,3))
         syl_display1.set(round(SYL_Sigma,3))
-        with pl.Config(tbl_cols=-1,tbl_rows=-1):
-            print(percentage)
         percentage.drop_in_place('1')
-        sbl_btn.config(state=tk.NORMAL)
+        sbl_btn.config(state=tk.NORMAL)'''
     
     
     #SPAT計算DEBUG
 
-    print(f'Original Max:{MAX} Min:{MIN}')
-    print(f'Robust Mean: {Robust_Mean}')
-    print(f'Robust Sigma: {round(Robust_Sigma,3)}')
+    #print(f'Original Max:{MAX} Min:{MIN}')
+    #print(f'Robust Mean: {Robust_Mean}')
+    #print(f'Robust Sigma: {round(Robust_Sigma,3)}')
     #print(f'Q1:{data_base.quantile(0.25,"linear").item(0,0)}')
     #print(f'Q3:{data_base.quantile(0.75,"linear").item(0,0)}')
     #with pl.Config(tbl_cols=-1,tbl_rows=-1):
@@ -153,46 +126,67 @@ def calculate():
 
 
 
-def spat():
-    try:
-        SPAT_upper_limit = round(Robust_Mean + float(spinbox.get()) * Robust_Sigma , 3)
-        SPAT_lower_limit = round(Robust_Mean - float(spinbox.get()) * Robust_Sigma , 3)
-        #print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
-        #輸出SPAT
-        if MAX == None:
-            SPAT.set(SPAT_upper_limit)
-            btn.config(fg='black')
-        elif SPAT_upper_limit > MAX:
-            SPAT.set(MAX)
-            btn.config(fg='red')
-        else:
-            SPAT.set(SPAT_upper_limit)
-            btn.config(fg='black')
-        
-        if MIN == None:
-            SPAT_1.set(SPAT_lower_limit)
-            btn_1.config(fg='black')
-        elif SPAT_lower_limit < MIN:
-            SPAT_1.set(MIN)
-            btn_1.config(fg='red')
-        else:
-            SPAT_1.set(SPAT_lower_limit)
-            btn_1.config(fg='black')
+def spat(self):
+    n, = listbox.curselection()
+    listbox_parameter = listbox.get(n)
 
-        count = spat_rd.count().item()
-        loss_die = spat_rd.filter((pl.first() > SPAT_upper_limit) | (pl.first() < SPAT_lower_limit)).count().item()
-        loss.set(f"{round((loss_die / count)*100,3)}%")
-        print(f"total{count}")
-        print(f'choose{loss_die}')
+    #取得原始上下限
+    MIN_rd = limit_rd.filter(pl.col('Parameter') == 'Min').select(listbox_parameter)   #問題
+    MIN_rd = MIN_rd.item(0,0)
+    if MIN_rd == None:
+        MIN = MIN_rd
+    else:
+        try:
+            MIN = float(MIN_rd)
+        except:
+            MIN = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MIN_rd))
 
-    except:
-        pass
+    MAX_rd = limit_rd.filter(pl.col('Parameter') == 'Max').select(listbox_parameter)   #問題
+    MAX_rd = MAX_rd.item(0,0)
+    if MAX_rd == None:
+        MAX = MAX_rd
+    else:
+        try:
+            MAX = float(MAX_rd)
+        except:
+            MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
+
+    SPAT_upper_limit = Robust_Mean.select(listbox_parameter).item() + float(spinbox.get()) * Robust_Sigma.select(listbox_parameter).item()
+    SPAT_lower_limit = Robust_Mean.select(listbox_parameter).item() - float(spinbox.get()) * Robust_Sigma.select(listbox_parameter).item()
+    #print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
+    #輸出SPAT
+    if MAX == None:
+        SPAT.set(round(SPAT_upper_limit,3))
+        btn.config(fg='black')
+    elif SPAT_upper_limit > MAX:
+        SPAT.set(MAX)
+        btn.config(fg='red')
+    else:
+        SPAT.set(round(SPAT_upper_limit,3))
+        btn.config(fg='black')
+    
+    if MIN == None:
+        SPAT_1.set(round(SPAT_lower_limit,3))
+        btn_1.config(fg='black')
+    elif SPAT_lower_limit < MIN:
+        SPAT_1.set(MIN)
+        btn_1.config(fg='red')
+    else:
+        SPAT_1.set(round(SPAT_lower_limit,3))
+        btn_1.config(fg='black')
+
+    count = spat_rd.select(listbox_parameter).count().item()
+    loss_die = spat_rd.select(listbox_parameter).filter((pl.first() > SPAT_upper_limit) | (pl.first() < SPAT_lower_limit)).count().item()
+    loss.set(f"{round((loss_die / count)*100,3)}%")
+    print(f"total{count}")
+    print(f'choose{loss_die}')
+
         
 def clean():
     global total_files
     global listbox_status
     global percentage
-    global rd
+    #global rd
     global limit_rd
     global Robust_Mean
     global Robust_Sigma
@@ -214,7 +208,7 @@ def clean():
 
     try:
         del percentage
-        del rd
+        #del rd
         del limit_rd
         del Robust_Mean
         del Robust_Sigma
@@ -413,6 +407,7 @@ if __name__ == '__main__':
     #listbox
     listbox = tk.Listbox(root ,listvariable=parameter,font=('Arial',10),selectmode='single',yscrollcommand=scollbar.set,justify='center',relief='solid',bd=2)
     listbox.place(relx=0.7,rely=0.07,width=200,height=185)
+    listbox.bind('<<ListboxSelect>>',spat)
     #scollbar
     scollbar.config(command=listbox.yview)
     #檔案數量
@@ -421,7 +416,7 @@ if __name__ == '__main__':
     files_amount_label = tk.Label(files_amount_frame,textvariable=files_amount, font=('Arial',40))
     files_amount_label.pack(fill='both',expand=1)
     #SPAT數值調整
-    spinbox = tk.Spinbox(root,from_=0,to=50,font=('Arial',20),fg='#f00',justify='center',textvariable=adj,command=spat)
+    spinbox = tk.Spinbox(root,from_=0,to=50,font=('Arial',20),fg='#f00',justify='center',textvariable=adj,command=partial(spat,None))
     spinbox.place(relx=0.14,rely=0.72,width=110)
     #設定
     menubar = tk.Menu(root)
