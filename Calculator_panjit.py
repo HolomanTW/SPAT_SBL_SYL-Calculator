@@ -18,7 +18,7 @@ def loadfiles():
     global total_files
 
     folder_path = filedialog.askdirectory()
-        
+ 
     if folder_path != '':
         files = glob(f'{folder_path}/**/*[!a-z].csv',recursive=True)
 
@@ -33,7 +33,7 @@ def loadfiles():
             header = pl.read_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,n_rows=0,truncate_ragged_lines=True).drop('')
 
             if 'Parameter' in header.columns:
-                title = [x for x in header.columns if x not in ban_list]
+                title = [x for x in header.columns if x not in ban_list and 'CONT' not in x and 'OPEN' not in x]
                 files_amount.set(len(total_files))
                 test = threading.Thread(target=animation)
                 test.start()
@@ -57,9 +57,15 @@ def calculate():
     global Robust_Mean
     global Robust_Sigma
     global spat_rd
-    global combine_forSPAT_rd
+    #global combine_forSPAT_rd
+    global total_rd
+    global SPAT_sigmaX
+    global SPAT_lower_limit
+    global SPAT_upper_limit
 
     parameter.set(title)
+    SPAT_sigmaX = [6]*len(title)
+    
 
     file_queue = []
     for file in total_files:
@@ -82,8 +88,46 @@ def calculate():
     except TypeError:
         messagebox.showerror('Error','無良率')
 
-    
-    
+    for parameter_ in title:
+        MIN_rd = limit_rd.filter(pl.col('Parameter') == 'Min').select(parameter_).item()   #問題
+        if MIN_rd == None:
+            MIN = MIN_rd
+        else:
+            try:
+                MIN = float(MIN_rd)
+            except:
+                MIN = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MIN_rd))
+
+        MAX_rd = limit_rd.filter(pl.col('Parameter') == 'Max').select(parameter_).item()   #問題
+        if MAX_rd == None:
+            MAX = MAX_rd
+        else:
+            try:
+                MAX = float(MAX_rd)
+            except:
+                MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
+
+        upper_limit = Robust_Mean.select(parameter_).item() + 6 * Robust_Sigma.select(parameter_).item()
+        lower_limit = Robust_Mean.select(parameter_).item() - 6 * Robust_Sigma.select(parameter_).item()
+
+        if MAX == None:
+            SPAT_upper_limit.append(round(upper_limit,3))
+        elif upper_limit > MAX:
+            SPAT_upper_limit.append(MAX)
+        else:
+            SPAT_upper_limit.append(round(upper_limit,3))
+            
+        if MIN == None:
+            SPAT_lower_limit.append(round(lower_limit,3))
+        elif lower_limit < MIN:
+            SPAT_lower_limit.append(MIN)
+        else:
+            SPAT_lower_limit.append(round(lower_limit,3))
+
+    print(SPAT_upper_limit)
+    print(SPAT_lower_limit)
+                
+
 '''    if recalculatesbl == True:
         for file in total_files:
             bin_rd = pl.read_csv(file ,has_header=True,skip_rows=bin_row.get()-1,skip_rows_after_header=1,n_rows=1,truncate_ragged_lines=True)
@@ -125,14 +169,19 @@ def calculate():
 
 
 
-
-def spat(self):
+def spat(category):
+    global SPAT_sigmaX
+    global SPAT_lower_limit
+    global SPAT_upper_limit
     n, = listbox.curselection()
     listbox_parameter = listbox.get(n)
+    if category == 1:
+        SPAT_sigmaX[n] = adj.get()
+    else:
+        adj.set(SPAT_sigmaX[n])
 
     #取得原始上下限
-    MIN_rd = limit_rd.filter(pl.col('Parameter') == 'Min').select(listbox_parameter)   #問題
-    MIN_rd = MIN_rd.item(0,0)
+    MIN_rd = limit_rd.filter(pl.col('Parameter') == 'Min').select(listbox_parameter).item()   #問題
     if MIN_rd == None:
         MIN = MIN_rd
     else:
@@ -141,8 +190,7 @@ def spat(self):
         except:
             MIN = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MIN_rd))
 
-    MAX_rd = limit_rd.filter(pl.col('Parameter') == 'Max').select(listbox_parameter)   #問題
-    MAX_rd = MAX_rd.item(0,0)
+    MAX_rd = limit_rd.filter(pl.col('Parameter') == 'Max').select(listbox_parameter).item()   #問題
     if MAX_rd == None:
         MAX = MAX_rd
     else:
@@ -151,37 +199,50 @@ def spat(self):
         except:
             MAX = ''.join(filter(lambda x: x.isdigit() or x == '.' or x == '-',MAX_rd))
 
-    SPAT_upper_limit = Robust_Mean.select(listbox_parameter).item() + float(spinbox.get()) * Robust_Sigma.select(listbox_parameter).item()
-    SPAT_lower_limit = Robust_Mean.select(listbox_parameter).item() - float(spinbox.get()) * Robust_Sigma.select(listbox_parameter).item()
+    upper_limit = Robust_Mean.select(listbox_parameter).item() + float(spinbox.get()) * Robust_Sigma.select(listbox_parameter).item()
+    lower_limit = Robust_Mean.select(listbox_parameter).item() - float(spinbox.get()) * Robust_Sigma.select(listbox_parameter).item()
     #print(f"SPAT max:{SPAT_upper_limit}  min:{SPAT_lower_limit}")
     #輸出SPAT
     if MAX == None:
-        SPAT.set(round(SPAT_upper_limit,3))
+        SPAT.set(round(upper_limit,3))
+        SPAT_upper_limit[n] = round(upper_limit,3)
         btn.config(fg='black')
-    elif SPAT_upper_limit > MAX:
+    elif upper_limit > MAX:
         SPAT.set(MAX)
+        SPAT_upper_limit[n] = MAX
         btn.config(fg='red')
     else:
-        SPAT.set(round(SPAT_upper_limit,3))
+        SPAT.set(round(upper_limit,3))
+        SPAT_upper_limit[n] = round(upper_limit,3)
         btn.config(fg='black')
     
     if MIN == None:
-        SPAT_1.set(round(SPAT_lower_limit,3))
+        SPAT_1.set(round(lower_limit,3))
+        SPAT_lower_limit[n] = round(lower_limit,3)
         btn_1.config(fg='black')
-    elif SPAT_lower_limit < MIN:
+    elif lower_limit < MIN:
         SPAT_1.set(MIN)
+        SPAT_lower_limit[n] = MIN
         btn_1.config(fg='red')
     else:
-        SPAT_1.set(round(SPAT_lower_limit,3))
+        SPAT_1.set(round(lower_limit,3))
+        SPAT_lower_limit[n] = round(lower_limit,3)
         btn_1.config(fg='black')
 
     count = spat_rd.select(listbox_parameter).count().item()
-    loss_die = spat_rd.select(listbox_parameter).filter((pl.first() > SPAT_upper_limit) | (pl.first() < SPAT_lower_limit)).count().item()
+    loss_die = spat_rd.select(listbox_parameter).filter((pl.first() > upper_limit) | (pl.first() < lower_limit)).count().item()
     loss.set(f"{round((loss_die / count)*100,3)}%")
     print(f"total{count}")
     print(f'choose{loss_die}')
+    print(SPAT_upper_limit)
+    print(SPAT_lower_limit)
 
-        
+def dpat():
+    for i,rd in enumerate(total_rd):
+        count_total = rd.count().item(0,0)
+    
+        print(count_total)
+    return
 def clean():
     global total_files
     global listbox_status
@@ -190,8 +251,7 @@ def clean():
     global limit_rd
     global Robust_Mean
     global Robust_Sigma
-    global MIN
-    global MAX
+    global title
 
     total_files = []
     parameter.set('')
@@ -212,8 +272,7 @@ def clean():
         del limit_rd
         del Robust_Mean
         del Robust_Sigma
-        del MIN
-        del MAX
+        del title
     except:
         pass
 
@@ -294,10 +353,7 @@ def settings():
     parameter_header_row.place(relx=0.1,rely=0.1)
     parameter_header_row_spinbox = tk.Spinbox(Setting,from_=0,to=100,font=('Arial',17),fg='#f00',justify='center',textvariable=header_row)
     parameter_header_row_spinbox.place(relx=0.5,rely=0.1,width=50)
-    bin_header_row = tk.Label(Setting,text='bin標題 row 定位',font=(10))
-    bin_header_row.place(relx=0.1,rely=0.3)
-    bin_header_row_spinbox = tk.Spinbox(Setting,from_=0,to=100,font=('Arial',17),fg='#f00',justify='center',textvariable=bin_row)
-    bin_header_row_spinbox.place(relx=0.5,rely=0.3,width=50)
+
     def close():
         Setting.destroy()
         Setting.quit()
@@ -338,6 +394,8 @@ if __name__ == '__main__':
     header_row.set(19)
     bin_row = tk.IntVar()
     bin_row.set(14)
+    SPAT_upper_limit = []
+    SPAT_lower_limit = []
     
     ban_list = ['Parameter','X','Y','Bin#','Site#','B-CONT','C-CONT','E-CONT','OPEN/SHORT']
     listbox_status = False
@@ -365,8 +423,8 @@ if __name__ == '__main__':
     btn_1 = tk.Button(root,textvariable=SPAT_1, command=partial(copy,SPAT_1),font=('Arial',18),relief='solid',bd=2)
     btn_1.place(relx=0.14,rely=0.6,width=110,height=50)
     #DPAT標題
-    label2 = tk.Label(root,text='DPAT',wraplength=300,font=('Arial',20,'bold'))
-    label2.place(relx=0.3,rely=0.39,width=190,height=50)
+    btn2 = tk.Button(root,text='DPAT',wraplength=300,font=('Arial',20,'bold'),relief='flat',command=dpat)
+    btn2.place(relx=0.3,rely=0.39,width=190,height=50)
     #SYL標題
     label1 = tk.Label(root, text="SYL", wraplength=300,font=('Arial',20,'bold'))
     label1.place(relx=0.5,rely=0.39,width=190,height=50)
@@ -378,7 +436,7 @@ if __name__ == '__main__':
     btn1_1.place(relx=0.54,rely=0.6,width=110,height=50)
     #SYL title
     label3 = tk.Label(root,text='Mean\n\n\nSigma',font=('Arial',14))
-    label3.place(relx=0.45,rely=0.72)
+    label3.place(relx=0.68,rely=0.72)
     #SYL標註
     label4 = tk.Label(root,textvariable=syl_display,font=('Arial',20),anchor='center')
     label4.place(relx=0.54,rely=0.71,width=110,height=50)
@@ -416,7 +474,7 @@ if __name__ == '__main__':
     files_amount_label = tk.Label(files_amount_frame,textvariable=files_amount, font=('Arial',40))
     files_amount_label.pack(fill='both',expand=1)
     #SPAT數值調整
-    spinbox = tk.Spinbox(root,from_=0,to=50,font=('Arial',20),fg='#f00',justify='center',textvariable=adj,command=partial(spat,None))
+    spinbox = tk.Spinbox(root,from_=0,to=50,font=('Arial',20),fg='#f00',justify='center',textvariable=adj,command=partial(spat,1))
     spinbox.place(relx=0.14,rely=0.72,width=110)
     #設定
     menubar = tk.Menu(root)
@@ -425,5 +483,8 @@ if __name__ == '__main__':
     #LOSS率
     losslabel = tk.Label(root ,textvariable=loss,font=('Arial',20))
     losslabel.place(relx=0.14,rely=0.81,width=110,height=50)
+    #DPAT狀態顯示
+    DPAT_Dis = tk.Text(root)
+    DPAT_Dis.place(x=300,y=285,width=190,height=280)
 
     root.mainloop()
