@@ -57,8 +57,12 @@ def loadfiles():
                     root.mainloop()
                     break
                 else:
-                    messagebox.showerror('Error',"找不到 Bin 標題\n\n請重新選擇")
-                    settings()
+                    retry_bin = messagebox.askretrycancel('Error',"找不到 Bin 標題\n\n請重新選擇")
+                    if retry_bin == True:
+                        settings()
+                    else:
+                        total_files = []
+                        break
 
 
 
@@ -78,6 +82,16 @@ def calculate():
     limit_rd = pl.read_csv(total_files[0],has_header=True,skip_rows=header_row.get()-1,skip_rows_after_header=1,n_rows=3).drop('')
     combine_forSPAT_rd = rd.filter(pl.col('Bin#') == '1').drop('Parameter').collect()
 
+    '''che = []
+    for file in total_files:
+        check_rd = pl.scan_csv(file,has_header=True,skip_rows=7,n_rows=1,truncate_ragged_lines=True).select('RDWFODASK-D08-01-P0').cast(pl.Int64)
+        che.append(check_rd)
+    check = pl.collect_all(che)
+    print(check)
+    print(f'數量{len(check)}')
+    combine = pl.concat(check).sum()
+    print(combine)'''
+
 
     #轉換數據類型為Float
     try:
@@ -88,6 +102,7 @@ def calculate():
     try:
         Robust_Mean = spat_rd.median()
         Robust_Sigma = (spat_rd.quantile(0.75,"linear") - spat_rd.quantile(0.25,"linear")) / 1.35
+    
     except TypeError:
         messagebox.showerror('Error','無良率')
 
@@ -234,6 +249,9 @@ def sbl_window():
     top = int((window_height - height)/2)      # 計算左上 y 座標
     window.geometry(f'{width}x{height}+{left}+{top}')
     #滾動條
+    def roll(event):
+        canvas.yview_scroll(int(event.delta/-120),'units')
+    window.bind('<MouseWheel>',roll)
     scbar = tk.Scrollbar(window,orient='vertical')
     scbar.pack(side='right',fill='y')
     
